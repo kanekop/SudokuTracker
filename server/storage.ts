@@ -113,7 +113,7 @@ export class DatabaseStorage implements IStorage {
     const completedGames = completedGamesResult?.value || 0;
     
     // Calculate completion rate
-    const completionRate = totalGames > 0 ? (completedGames / totalGames) * 100 : 0;
+    const completionRate = Number(totalGames > 0 ? (completedGames / totalGames) * 100 : 0);
     
     // Calculate average time for completed games
     const [averageTimeResult] = await db
@@ -124,7 +124,7 @@ export class DatabaseStorage implements IStorage {
         eq(games.isCompleted, true)
       ));
     
-    const averageTime = averageTimeResult?.value || 0;
+    const averageTime = Number(averageTimeResult?.value || 0);
     
     return {
       totalGames,
