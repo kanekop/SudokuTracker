@@ -1,34 +1,26 @@
 import { Button } from '@/components/ui/button';
-import { Eraser, Pencil, LightbulbIcon, Save, RefreshCw, Clock, CheckCircle } from 'lucide-react';
+import { Pencil, LightbulbIcon, Save, RefreshCw, CheckCircle } from 'lucide-react';
 
 interface GameControlsProps {
-  onErase: () => void;
   onToggleNoteMode: () => void;
   onHint: () => void;
   onSaveGame: () => void;
   onNewGame: () => void;
   onCheckSolution: () => void;
   isNoteMode: boolean;
-  timeSpent: string;
 }
 
 export function GameControls({
-  onErase,
   onToggleNoteMode,
   onHint,
   onSaveGame,
   onNewGame,
   onCheckSolution,
-  isNoteMode,
-  timeSpent
+  isNoteMode
 }: GameControlsProps) {
   return (
     <>
-      <div className="game-actions flex items-center space-x-2">
-        <div className="timer bg-white px-3 py-1 rounded-lg border border-gray-medium flex items-center">
-          <Clock className="mr-2 h-4 w-4 text-secondary" />
-          <span id="timer" className="font-mono">{timeSpent}</span>
-        </div>
+      <div className="game-actions flex items-center space-x-2 justify-center">
         <Button
           variant="outline"
           size="sm"

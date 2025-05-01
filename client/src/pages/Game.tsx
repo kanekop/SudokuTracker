@@ -244,14 +244,12 @@ export default function Game() {
         />
         
         <GameControls
-          onErase={sudoku.eraseCell}
           onToggleNoteMode={sudoku.toggleNoteMode}
           onHint={handleHint}
           onSaveGame={handleSaveGame}
           onNewGame={handleNewGame}
           onCheckSolution={handleCheckSolution}
           isNoteMode={sudoku.isNoteMode}
-          timeSpent={timer.formattedTime}
         />
       </div>
       
