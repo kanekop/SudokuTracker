@@ -153,17 +153,7 @@ export default function Game() {
     }
   };
   
-  // Handle hint button
-  const handleHint = () => {
-    const result = sudoku.getHint();
-    if (result) {
-      toast({
-        title: result.success ? "ヒント" : "注意",
-        description: result.message,
-        variant: result.success ? "default" : "destructive",
-      });
-    }
-  };
+  // Hint functionality removed
   
   // Handle check solution button
   const handleCheckSolution = () => {
@@ -265,7 +255,6 @@ export default function Game() {
         <div className="flex flex-col gap-3 md:mt-0">
           <GameControls
             onToggleNoteMode={sudoku.toggleNoteMode}
-            onHint={handleHint}
             onSaveGame={handleSaveGame}
             onNewGame={handleNewGame}
             onCheckSolution={handleCheckSolution}

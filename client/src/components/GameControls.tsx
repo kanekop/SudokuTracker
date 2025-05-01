@@ -1,9 +1,8 @@
 import { Button } from '@/components/ui/button';
-import { Pencil, LightbulbIcon, Save, RefreshCw, CheckCircle } from 'lucide-react';
+import { Pencil, Save, RefreshCw, CheckCircle } from 'lucide-react';
 
 interface GameControlsProps {
   onToggleNoteMode: () => void;
-  onHint: () => void;
   onSaveGame: () => void;
   onNewGame: () => void;
   onCheckSolution: () => void;
@@ -12,7 +11,6 @@ interface GameControlsProps {
 
 export function GameControls({
   onToggleNoteMode,
-  onHint,
   onSaveGame,
   onNewGame,
   onCheckSolution,
@@ -49,16 +47,6 @@ export function GameControls({
       >
         <Pencil className="mr-2 h-4 w-4" />
         <span>メモ</span>
-      </Button>
-      
-      <Button
-        variant="outline"
-        className="bg-white hover:bg-gray-100 text-gray-700 border border-gray-medium w-full"
-        onClick={onHint}
-        title="ヒント: 選択したマスに正解の数字を表示します"
-      >
-        <LightbulbIcon className="mr-2 h-4 w-4" />
-        <span>ヒント</span>
       </Button>
       
       <Button

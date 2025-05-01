@@ -169,42 +169,7 @@ export function useSudoku({
     setIsNoteMode(prev => !prev);
   };
   
-  const getHint = () => {
-    if (!selectedCell) {
-      // No cell selected
-      return { success: false, message: "先にマスを選択してください" }; // Please select a cell first
-    }
-    
-    if (!solvedBoard) {
-      // No solved board available
-      return { success: false, message: "ソリューションデータが利用できません" }; // Solution data is not available
-    }
-    
-    const [row, col] = selectedCell;
-    
-    // Cannot get hints for filled cells
-    if (board[row][col].status === cellStatus.FILLED) {
-      return { success: false, message: "このマスはヒントを与えられません" }; // Can't give hint for this cell
-    }
-    
-    const hintValue = solvedBoard[row][col].value;
-    if (!hintValue) {
-      return { success: false, message: "このマスのヒントがありません" }; // No hint available for this cell
-    }
-    
-    // Set the value from the solved board
-    setBoard(prevBoard => {
-      const newBoard = JSON.parse(JSON.stringify(prevBoard)) as Board;
-      newBoard[row][col] = {
-        value: hintValue,
-        status: cellStatus.USER_FILLED,
-        notes: [],
-      };
-      return newBoard;
-    });
-    
-    return { success: true, message: `ヒント: ${hintValue}` }; // Hint displayed with the value
-  };
+  // Hint functionality removed
   
   const saveGame = (currentTimeSpent: number) => {
     saveGameMutation.mutate({
@@ -227,7 +192,6 @@ export function useSudoku({
     fillCell,
     eraseCell,
     toggleNoteMode,
-    getHint,
     saveGame,
     isCellError,
     saveGameMutation,
