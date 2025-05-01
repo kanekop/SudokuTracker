@@ -11,6 +11,7 @@ import { GameControls } from '@/components/GameControls';
 import { DifficultySelector } from '@/components/DifficultySelector';
 import { CompletionModal } from '@/components/CompletionModal';
 import { useToast } from '@/hooks/use-toast';
+import { generateSudoku } from '@/lib/sudoku';
 
 export default function Game() {
   const { isLoggedIn, user } = useAuth();
@@ -19,8 +20,23 @@ export default function Game() {
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
   const { toast } = useToast();
   
+  // Local state for non-logged-in users
+  const [localGame, setLocalGame] = useState<{ initialBoard: any; solvedBoard: any } | null>(null);
+  
   // Timer hook
   const timer = useTimer();
+  
+  // Generate a local game for non-logged-in users
+  useEffect(() => {
+    if (!isLoggedIn && !localGame) {
+      const newGame = generateSudoku(difficulty);
+      setLocalGame(newGame);
+      timer.reset();
+      timer.start();
+    }
+  }, [isLoggedIn, difficulty, localGame]);
+  
+  // This useEffect is removed to avoid conflicts with the one above and the handleDifficultyChange function
   
   // Create a new game
   const createGameMutation = useMutation({
@@ -32,6 +48,7 @@ export default function Game() {
       setCurrentGameId(data.id);
       timer.reset();
       timer.start();
+      setLocalGame(null); // Clear local game when server game is created
       queryClient.invalidateQueries({ queryKey: ['/api/games'] });
     },
     onError: (error) => {
@@ -52,26 +69,28 @@ export default function Game() {
   // Initialize sudoku hook with game data
   const sudoku = useSudoku({
     gameId: currentGameId,
-    initialBoard: gameData?.initialBoard,
-    solvedBoard: gameData?.solvedBoard,
+    initialBoard: gameData?.initialBoard || localGame?.initialBoard,
+    solvedBoard: gameData?.solvedBoard || localGame?.solvedBoard,
     difficulty: gameData?.difficulty || difficulty,
     timeSpent: timer.seconds,
     onGameComplete: (gameState) => {
       setIsCompletionModalOpen(true);
       timer.pause();
-      // Save the completed game
-      sudoku.saveGame(timer.seconds);
+      // Save the completed game if logged in
+      if (isLoggedIn) {
+        sudoku.saveGame(timer.seconds);
+      }
     },
   });
   
-  // Start a new game when difficulty changes or when component mounts
+  // Start a new game when difficulty changes or when component mounts for logged-in users
   useEffect(() => {
     if (isLoggedIn && !currentGameId) {
       createGameMutation.mutate(difficulty);
     }
   }, [isLoggedIn, difficulty]);
   
-  // Set timer when game data is loaded
+  // Set timer when game data is loaded for logged-in users
   useEffect(() => {
     if (gameData) {
       timer.setTime(gameData.timeSpent);
@@ -81,7 +100,7 @@ export default function Game() {
     }
   }, [gameData]);
   
-  // Handle game save (auto-save every 30 seconds)
+  // Handle game save (auto-save every 30 seconds) for logged-in users
   useEffect(() => {
     const saveInterval = setInterval(() => {
       if (isLoggedIn && currentGameId && !sudoku.gameCompleted) {
@@ -99,6 +118,12 @@ export default function Game() {
     setDifficulty(newDifficulty);
     if (isLoggedIn) {
       createGameMutation.mutate(newDifficulty);
+    } else {
+      // For non-logged-in users, generate a new local game
+      const newGame = generateSudoku(newDifficulty);
+      setLocalGame(newGame);
+      timer.reset();
+      timer.start();
     }
   };
   
@@ -106,6 +131,12 @@ export default function Game() {
   const handleNewGame = () => {
     if (isLoggedIn) {
       createGameMutation.mutate(difficulty);
+    } else {
+      // For non-logged-in users, generate a new local game
+      const newGame = generateSudoku(difficulty);
+      setLocalGame(newGame);
+      timer.reset();
+      timer.start();
     }
   };
   
