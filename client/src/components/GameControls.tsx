@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Eraser, Pencil, LightbulbIcon, Save, RefreshCw, Clock } from 'lucide-react';
+import { Eraser, Pencil, LightbulbIcon, Save, RefreshCw, Clock, CheckCircle } from 'lucide-react';
 
 interface GameControlsProps {
   onErase: () => void;
@@ -7,6 +7,7 @@ interface GameControlsProps {
   onHint: () => void;
   onSaveGame: () => void;
   onNewGame: () => void;
+  onCheckSolution: () => void;
   isNoteMode: boolean;
   timeSpent: string;
 }
@@ -17,6 +18,7 @@ export function GameControls({
   onHint,
   onSaveGame,
   onNewGame,
+  onCheckSolution,
   isNoteMode,
   timeSpent
 }: GameControlsProps) {
@@ -74,6 +76,14 @@ export function GameControls({
         >
           <LightbulbIcon className="mr-2 h-4 w-4" />
           <span>ヒント</span>
+        </Button>
+        <Button
+          variant="outline"
+          className="bg-green-100 hover:bg-green-200 text-green-700 border border-green-500"
+          onClick={onCheckSolution}
+        >
+          <CheckCircle className="mr-2 h-4 w-4" />
+          <span>確認</span>
         </Button>
       </div>
     </>

@@ -153,6 +153,70 @@ export default function Game() {
     }
   };
   
+  // Handle hint button
+  const handleHint = () => {
+    const result = sudoku.getHint();
+    if (result) {
+      toast({
+        title: result.success ? "ヒント" : "注意",
+        description: result.message,
+        variant: result.success ? "default" : "destructive",
+      });
+    }
+  };
+  
+  // Handle check solution button
+  const handleCheckSolution = () => {
+    // Check if the board is complete
+    if (!sudoku.board || !solvedBoard) {
+      toast({
+        title: "エラー",
+        description: "ゲームデータが不完全です",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Check if all cells are filled
+    const allCellsFilled = sudoku.board.every(row => 
+      row.every(cell => cell.value !== 0)
+    );
+    
+    if (!allCellsFilled) {
+      toast({
+        title: "未完成",
+        description: "すべてのマスを埋めてください",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Check if solution is correct
+    const isCorrect = sudoku.gameCompleted;
+    
+    if (isCorrect) {
+      toast({
+        title: "正解！",
+        description: "完璧なソリューションです！おめでとう！",
+        variant: "default",
+      });
+      // Open the completion modal
+      setIsCompletionModalOpen(true);
+      timer.pause();
+      
+      // Save the completed game if logged in
+      if (isLoggedIn && currentGameId) {
+        sudoku.saveGame(timer.seconds);
+      }
+    } else {
+      toast({
+        title: "不正解",
+        description: "解答に誤りがあります。赤く表示されたマスを確認してください。",
+        variant: "destructive",
+      });
+    }
+  };
+  
   // Handle save game
   const handleSaveGame = () => {
     if (isLoggedIn && currentGameId) {
@@ -182,9 +246,10 @@ export default function Game() {
         <GameControls
           onErase={sudoku.eraseCell}
           onToggleNoteMode={sudoku.toggleNoteMode}
-          onHint={sudoku.getHint}
+          onHint={handleHint}
           onSaveGame={handleSaveGame}
           onNewGame={handleNewGame}
+          onCheckSolution={handleCheckSolution}
           isNoteMode={sudoku.isNoteMode}
           timeSpent={timer.formattedTime}
         />
