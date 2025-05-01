@@ -11,6 +11,11 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, count, avg, and } from "drizzle-orm";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+import { pool } from "./db";
+
+const PgSession = connectPg(session);
 
 export interface IStorage {
   // User methods
@@ -24,9 +29,21 @@ export interface IStorage {
   getUserGames(userId: number): Promise<UserGameHistory[]>;
   updateGame(id: number, updates: Partial<Game>): Promise<Game | undefined>;
   getUserStats(userId: number): Promise<UserStats>;
+  
+  // Session store for authentication
+  sessionStore: session.Store;
 }
 
 export class DatabaseStorage implements IStorage {
+  sessionStore: session.Store;
+  
+  constructor() {
+    this.sessionStore = new PgSession({
+      pool,
+      createTableIfMissing: true,
+    });
+  }
+  
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
