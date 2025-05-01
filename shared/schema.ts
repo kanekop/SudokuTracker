@@ -16,7 +16,7 @@ export type Difficulty = typeof difficulties[number];
 
 export const games = pgTable("games", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
+  userId: integer("user_id").notNull().references(() => users.id),
   difficulty: integer("difficulty").notNull(),
   initialBoard: text("initial_board").notNull(), // JSON string of 9x9 board
   currentBoard: text("current_board").notNull(), // JSON string of 9x9 board

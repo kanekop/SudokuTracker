@@ -5,8 +5,12 @@ import {
   type InsertGame, 
   type UserGameHistory, 
   type UserStats,
-  type Board
+  type Difficulty,
+  users,
+  games,
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, desc, count, avg, and } from "drizzle-orm";
 
 export interface IStorage {
   // User methods
@@ -22,85 +26,105 @@ export interface IStorage {
   getUserStats(userId: number): Promise<UserStats>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private games: Map<number, Game>;
-  private userIdCounter: number;
-  private gameIdCounter: number;
-
-  constructor() {
-    this.users = new Map();
-    this.games = new Map();
-    this.userIdCounter = 1;
-    this.gameIdCounter = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.userIdCounter++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
     return user;
   }
 
   async createGame(insertGame: InsertGame): Promise<Game> {
-    const id = this.gameIdCounter++;
-    const game: Game = { ...insertGame, id };
-    this.games.set(id, game);
+    const [game] = await db
+      .insert(games)
+      .values(insertGame)
+      .returning();
     return game;
   }
 
   async getGame(id: number): Promise<Game | undefined> {
-    return this.games.get(id);
+    const [game] = await db.select().from(games).where(eq(games.id, id));
+    return game;
   }
 
   async getUserGames(userId: number): Promise<UserGameHistory[]> {
-    return Array.from(this.games.values())
-      .filter((game) => game.userId === userId)
-      .map((game) => ({
-        id: game.id,
-        difficulty: game.difficulty as number,
-        timeSpent: game.timeSpent,
-        isCompleted: game.isCompleted,
-        startedAt: new Date(game.startedAt),
-        completedAt: game.completedAt ? new Date(game.completedAt) : undefined,
-      }))
-      .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime()); // Sort by date descending
+    const userGames = await db
+      .select({
+        id: games.id,
+        difficulty: games.difficulty,
+        timeSpent: games.timeSpent,
+        isCompleted: games.isCompleted,
+        startedAt: games.startedAt,
+        completedAt: games.completedAt,
+      })
+      .from(games)
+      .where(eq(games.userId, userId))
+      .orderBy(desc(games.startedAt));
+    
+    return userGames.map(game => ({
+      id: game.id,
+      difficulty: game.difficulty as Difficulty,
+      timeSpent: game.timeSpent ?? 0,
+      isCompleted: game.isCompleted ?? false,
+      startedAt: new Date(game.startedAt),
+      completedAt: game.completedAt ? new Date(game.completedAt) : undefined,
+    }));
   }
 
   async updateGame(id: number, updates: Partial<Game>): Promise<Game | undefined> {
-    const game = this.games.get(id);
-    if (!game) return undefined;
+    const [updatedGame] = await db
+      .update(games)
+      .set(updates)
+      .where(eq(games.id, id))
+      .returning();
     
-    const updatedGame = { ...game, ...updates };
-    this.games.set(id, updatedGame);
     return updatedGame;
   }
 
   async getUserStats(userId: number): Promise<UserStats> {
-    const userGames = Array.from(this.games.values()).filter(
-      (game) => game.userId === userId
-    );
+    // Count total games
+    const [totalGamesResult] = await db
+      .select({ value: count() })
+      .from(games)
+      .where(eq(games.userId, userId));
     
-    const totalGames = userGames.length;
-    const completedGames = userGames.filter((game) => game.isCompleted).length;
+    const totalGames = totalGamesResult?.value || 0;
+    
+    // Count completed games
+    const [completedGamesResult] = await db
+      .select({ value: count() })
+      .from(games)
+      .where(and(
+        eq(games.userId, userId),
+        eq(games.isCompleted, true)
+      ));
+    
+    const completedGames = completedGamesResult?.value || 0;
+    
+    // Calculate completion rate
     const completionRate = totalGames > 0 ? (completedGames / totalGames) * 100 : 0;
     
-    const completedGameTimes = userGames
-      .filter((game) => game.isCompleted)
-      .map((game) => game.timeSpent);
+    // Calculate average time for completed games
+    const [averageTimeResult] = await db
+      .select({ value: avg(games.timeSpent) })
+      .from(games)
+      .where(and(
+        eq(games.userId, userId),
+        eq(games.isCompleted, true)
+      ));
     
-    const totalTime = completedGameTimes.reduce((sum, time) => sum + time, 0);
-    const averageTime = completedGames > 0 ? totalTime / completedGames : 0;
+    const averageTime = averageTimeResult?.value || 0;
     
     return {
       totalGames,
@@ -111,4 +135,4 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
