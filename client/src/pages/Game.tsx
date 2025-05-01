@@ -49,6 +49,19 @@ export default function Game() {
       timer.reset();
       timer.start();
       setLocalGame(null); // Clear local game when server game is created
+      
+      // Explicitly fetch the new game data immediately
+      queryClient.setQueryData(['/api/games', data.id], {
+        id: data.id,
+        difficulty: data.difficulty,
+        initialBoard: data.initialBoard,
+        currentBoard: data.currentBoard,
+        solvedBoard: data.solvedBoard,
+        timeSpent: data.timeSpent,
+        isCompleted: data.isCompleted,
+        startedAt: data.startedAt,
+      });
+      
       queryClient.invalidateQueries({ queryKey: ['/api/games'] });
     },
     onError: (error) => {
