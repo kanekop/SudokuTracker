@@ -236,26 +236,18 @@ export default function Game() {
   
   return (
     <>
-      {/* Game Controls */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+      {/* Difficulty selector at the top */}
+      <div className="mb-4">
         <DifficultySelector
           selectedDifficulty={difficulty}
           onDifficultyChange={handleDifficultyChange}
         />
-        
-        <GameControls
-          onToggleNoteMode={sudoku.toggleNoteMode}
-          onHint={handleHint}
-          onSaveGame={handleSaveGame}
-          onNewGame={handleNewGame}
-          onCheckSolution={handleCheckSolution}
-          isNoteMode={sudoku.isNoteMode}
-        />
       </div>
       
-      {/* Sudoku Grid */}
-      <div className="flex justify-center">
-        <div className="mb-6 max-w-md w-full">
+      {/* Main game area with board on left and controls on right */}
+      <div className="flex flex-col md:flex-row justify-start items-start gap-6">
+        <div className="mb-6 w-full md:max-w-md">
+          {/* Sudoku Grid */}
           <SudokuBoard
             board={sudoku.board}
             selectedCell={sudoku.selectedCell}
@@ -266,6 +258,18 @@ export default function Game() {
           <NumberPad
             onNumberClick={sudoku.fillCell}
             onErase={sudoku.eraseCell}
+          />
+        </div>
+        
+        {/* Game Controls - vertical on mobile, vertical on desktop */}
+        <div className="flex flex-col gap-3 md:mt-0">
+          <GameControls
+            onToggleNoteMode={sudoku.toggleNoteMode}
+            onHint={handleHint}
+            onSaveGame={handleSaveGame}
+            onNewGame={handleNewGame}
+            onCheckSolution={handleCheckSolution}
+            isNoteMode={sudoku.isNoteMode}
           />
         </div>
       </div>
