@@ -170,9 +170,14 @@ export function useSudoku({
   };
   
   const getHint = () => {
-    if (!selectedCell || !solvedBoard) {
-      // No cell selected or no solved board available
+    if (!selectedCell) {
+      // No cell selected
       return { success: false, message: "先にマスを選択してください" }; // Please select a cell first
+    }
+    
+    if (!solvedBoard) {
+      // No solved board available
+      return { success: false, message: "ソリューションデータが利用できません" }; // Solution data is not available
     }
     
     const [row, col] = selectedCell;
@@ -182,17 +187,23 @@ export function useSudoku({
       return { success: false, message: "このマスはヒントを与えられません" }; // Can't give hint for this cell
     }
     
+    const hintValue = solvedBoard[row][col].value;
+    if (!hintValue) {
+      return { success: false, message: "このマスのヒントがありません" }; // No hint available for this cell
+    }
+    
+    // Set the value from the solved board
     setBoard(prevBoard => {
       const newBoard = JSON.parse(JSON.stringify(prevBoard)) as Board;
       newBoard[row][col] = {
-        value: solvedBoard[row][col].value,
+        value: hintValue,
         status: cellStatus.USER_FILLED,
         notes: [],
       };
       return newBoard;
     });
     
-    return { success: true, message: "ヒントを表示しました" }; // Hint displayed
+    return { success: true, message: `ヒント: ${hintValue}` }; // Hint displayed with the value
   };
   
   const saveGame = (currentTimeSpent: number) => {

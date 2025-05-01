@@ -267,6 +267,7 @@ export default function Game() {
           
           <NumberPad
             onNumberClick={sudoku.fillCell}
+            onErase={sudoku.eraseCell}
           />
         </div>
       </div>
