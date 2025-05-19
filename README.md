@@ -38,6 +38,7 @@
 ### ユーザー認証
 - 名前のみの簡易サインイン
 - セッション管理による状態保持
+- Postgres+connect-pg-simpleによるセッションストレージ
 
 ### ゲームプレイ
 - 10段階の難易度レベル（1〜10）
@@ -45,11 +46,19 @@
 - メモ機能（複数の候補数字をマスに記入）
 - 解答の検証機能
 - ゲームの保存と再開
+- 自動保存機能（30秒ごと）
 
 ### ゲーム履歴
 - プレイ履歴の表示
 - 過去のゲームの再開
 - 統計情報の表示
+- 難易度ごとのプレイ回数と成功率追跡
+
+### 高度なUI機能
+- レスポンシブデザイン（モバイル、タブレット、デスクトップ対応）
+- ダークモード対応
+- エラー表示（間違った数字の入力時に赤くハイライト）
+- 完成時の祝福メッセージとスタッツ表示
 
 ## APIエンドポイント
 
@@ -98,9 +107,120 @@ export const games = pgTable("games", {
 
 ### 数独パズル生成アルゴリズム
 `client/src/lib/sudoku.ts`に実装されています。以下のステップでパズルを生成します:
-1. 解答済みの完全な9x9の盤面を生成
+1. 解答済みの完全な9x9の盤面を生成（バックトラッキングアルゴリズム）
 2. 難易度に応じて一部のマスを空白にする
 3. 一意解が保証されるように調整
+
+#### 難易度アルゴリズムの詳細
+数独の難易度は1〜10の10段階で設定されており、以下の要素によって決定されます：
+
+1. **空白マスの数** (難易度1-10による調整)
+   - 難易度1: 約30マス（81マス中）
+   - 難易度5: 約45マス
+   - 難易度10: 約60マス
+
+2. **マス削除のパターン**
+   ```typescript
+   function createPuzzle(solvedBoard: number[][], difficulty: Difficulty): Board {
+     // 難易度に応じて削除するマスの数を計算
+     const cellsToRemove = 30 + (difficulty - 1) * 3;
+     
+     // 削除候補のマスの座標をシャッフル
+     const positions = [];
+     for (let i = 0; i < 9; i++) {
+       for (let j = 0; j < 9; j++) {
+         positions.push([i, j]);
+       }
+     }
+     shuffleArray(positions);
+     
+     // 盤面のコピーを作成
+     const puzzle = JSON.parse(JSON.stringify(solvedBoard));
+     
+     // マスを削除していく
+     let removed = 0;
+     for (const [row, col] of positions) {
+       // 一時的に値を除去
+       const temp = puzzle[row][col];
+       puzzle[row][col] = 0;
+       
+       // 一意解を持つかチェック
+       const solutions = countSolutions(puzzle);
+       
+       if (solutions === 1) {
+         // 一意解があるなら削除確定
+         removed++;
+         if (removed >= cellsToRemove) break;
+       } else {
+         // 一意解でなければ値を戻す
+         puzzle[row][col] = temp;
+       }
+     }
+     
+     // Board型に変換して返す処理
+     // ...
+   }
+   ```
+
+3. **難易度レベル別の特徴**
+   - **レベル1-3 (初級)**:
+     - 少ない空白マス（約30-36マス）
+     - 論理的推論のみで解ける
+     - ナンプレ初心者でも解ける難易度
+   
+   - **レベル4-7 (中級)**:
+     - 中程度の空白マス（約37-51マス）
+     - 「X-Wing」や「隠れたペア」など、やや高度な解法が必要
+     - 経験者向けの難易度
+   
+   - **レベル8-10 (上級)**:
+     - 多くの空白マス（約52-60マス）
+     - 「スウォードフィッシュ」や「XYZ-Wing」など、高度な解法が必要
+     - 上級者、専門家向けの難易度
+     
+4. **解法の検証アルゴリズム**
+   アプリケーションでは、ユーザーが入力した解答を検証するために、以下のようなアルゴリズムを使用しています：
+   
+   ```typescript
+   export function isBoardCorrect(currentBoard: Board, solvedBoard: Board): boolean {
+     for (let row = 0; row < 9; row++) {
+       for (let col = 0; col < 9; col++) {
+         if (currentBoard[row][col].value !== 0 && 
+             currentBoard[row][col].value !== solvedBoard[row][col].value) {
+           return false;
+         }
+       }
+     }
+     return true;
+   }
+   
+   export function getBoardErrors(board: Board): Set<string> {
+     const errors = new Set<string>();
+     
+     // 行の重複チェック
+     for (let row = 0; row < 9; row++) {
+       const seen = new Set<number>();
+       for (let col = 0; col < 9; col++) {
+         const value = board[row][col].value;
+         if (value !== 0) {
+           if (seen.has(value)) {
+             errors.add(`row-${row}-${value}`);
+           } else {
+             seen.add(value);
+           }
+         }
+       }
+     }
+     
+     // 列の重複チェック
+     // ...
+     
+     // 3x3ブロックの重複チェック
+     // ...
+     
+     return errors;
+   }
+   ```
 
 ### ゲームロジック
 `client/src/hooks/useSudoku.ts`に実装されています。主な機能:
@@ -114,6 +234,61 @@ PostgreSQLデータベースを使用して、以下の情報を保存します:
 - ユーザー情報
 - ゲーム状態（初期盤面、現在の盤面、解答盤面）
 - プレイ時間や完了状態などのメタデータ
+
+#### データベースとDrizzle ORMの連携
+Drizzle ORMを使用してPostgreSQLとの連携を行っています。
+
+```typescript
+// server/db.ts
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-serverless';
+import ws from "ws";
+import * as schema from "@shared/schema";
+
+neonConfig.webSocketConstructor = ws;
+
+export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const db = drizzle({ client: pool, schema });
+```
+
+#### ゲームデータの保存方法
+ゲーム盤面はJSON文字列としてデータベースに保存されます：
+
+```typescript
+// server/storage.ts (DatabaseStorage クラス)
+async createGame(insertGame: InsertGame): Promise<Game> {
+  const [game] = await db
+    .insert(games)
+    .values(insertGame)
+    .returning();
+  return game;
+}
+
+async updateGame(id: number, updates: Partial<Game>): Promise<Game | undefined> {
+  const [updatedGame] = await db
+    .update(games)
+    .set(updates)
+    .where(eq(games.id, id))
+    .returning();
+  return updatedGame;
+}
+```
+
+#### 自動保存機能
+ゲームは30秒ごとに自動保存されます：
+
+```typescript
+// client/src/pages/Game.tsx
+useEffect(() => {
+  const saveInterval = setInterval(() => {
+    if (isLoggedIn && currentGameId && !sudoku.gameCompleted) {
+      sudoku.saveGame(timer.seconds);
+    }
+  }, 30000);
+  
+  return () => clearInterval(saveInterval);
+}, [isLoggedIn, currentGameId, sudoku.gameCompleted, timer.seconds]);
+```
 
 ## 開発ガイド
 
