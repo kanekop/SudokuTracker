@@ -42,7 +42,8 @@ export function useSudoku({
   const [gameCompleted, setGameCompleted] = useState(false);
   const [isGameSaved, setIsGameSaved] = useState(!!gameId); // Track if game is already saved to server
   const [gameErrors, setGameErrors] = useState<Set<string>>(new Set());
-  
+  const [currentGameId, setCurrentGameId] = useState<number | undefined>(gameId);
+
   // Initialize the board when currentBoard or initialBoard changes
   useEffect(() => {
     if (currentBoard) {
@@ -55,29 +56,37 @@ export function useSudoku({
       setGameCompleted(false);
     }
   }, [currentBoard, initialBoard]);
-  
+
+  // Update gameId when it changes
+  useEffect(() => {
+    if (gameId) {
+      setCurrentGameId(gameId);
+      setIsGameSaved(true);
+    }
+  }, [gameId]);
+
   // Check for errors in the board
   useEffect(() => {
     setGameErrors(getBoardErrors(board));
   }, [board]);
-  
+
   // Check if the game is completed
   useEffect(() => {
     if (solvedBoard && isBoardComplete(board) && isBoardCorrect(board, solvedBoard) && !gameCompleted) {
       setGameCompleted(true);
-      
+
       // Save the completed game immediately
-      if (gameId) {
+      if (currentGameId) {
         saveGameMutation.mutate({
           currentBoard: board,
           timeSpent: timeSpent,
           isCompleted: true,
         });
       }
-      
-      if (onGameComplete && gameId) {
+
+      if (onGameComplete && currentGameId) {
         onGameComplete({
-          id: gameId,
+          id: currentGameId,
           difficulty: difficulty,
           initialBoard: initialBoard || createEmptyBoard(),
           currentBoard: board,
@@ -89,8 +98,8 @@ export function useSudoku({
         });
       }
     }
-  }, [board, solvedBoard, gameCompleted]);
-  
+  }, [board, solvedBoard, gameCompleted, currentGameId]);
+
   const createGameMutation = useMutation({
     mutationFn: async (data: {
       difficulty: Difficulty;
@@ -101,7 +110,9 @@ export function useSudoku({
       const response = await apiRequest('POST', '/api/games', data);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      setCurrentGameId(data.id);
+      setIsGameSaved(true);
       queryClient.invalidateQueries({ queryKey: ['/api/games'] });
       queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
     },
@@ -113,9 +124,9 @@ export function useSudoku({
       timeSpent: number;
       isCompleted: boolean;
     }) => {
-      if (!gameId) return null;
-      
-      const response = await apiRequest('PATCH', `/api/games/${gameId}`, data);
+      if (!currentGameId) return null;
+
+      const response = await apiRequest('PATCH', `/api/games/${currentGameId}`, data);
       return response.json();
     },
     onSuccess: () => {
@@ -123,37 +134,37 @@ export function useSudoku({
       queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
     },
   });
-  
+
   const selectCell = (row: number, col: number) => {
     // Cannot select filled cells from the initial board
     if (initialBoard && board[row][col].status === cellStatus.FILLED) {
       return;
     }
-    
+
     setSelectedCell([row, col]);
   };
-  
+
   const fillCell = (value: number) => {
     if (!selectedCell) return;
-    
+
     const [row, col] = selectedCell;
-    
+
     // Cannot modify filled cells from the initial board
     if (board[row][col].status === cellStatus.FILLED) {
       return;
     }
-    
+
     // Check if this is the first user input and game needs to be saved
-    const shouldCreateGame = !isGameSaved && !gameId && initialBoard && solvedBoard;
-    
+    const shouldCreateGame = !isGameSaved && !currentGameId && initialBoard && solvedBoard;
+
     setBoard(prevBoard => {
       const newBoard = JSON.parse(JSON.stringify(prevBoard)) as Board;
-      
+
       if (isNoteMode) {
         // Handle notes
         const notes = newBoard[row][col].notes || [];
         const noteIndex = notes.indexOf(value);
-        
+
         if (noteIndex === -1) {
           // Add note
           notes.push(value);
@@ -162,7 +173,7 @@ export function useSudoku({
           // Remove note
           notes.splice(noteIndex, 1);
         }
-        
+
         newBoard[row][col] = {
           ...newBoard[row][col],
           notes,
@@ -175,7 +186,7 @@ export function useSudoku({
           notes: [],
         };
       }
-      
+
       // If this is the first meaningful input, create the game on server
       if (shouldCreateGame && hasBoardChanged(initialBoard, newBoard)) {
         createGameMutation.mutate({
@@ -184,23 +195,22 @@ export function useSudoku({
           currentBoard: newBoard,
           solvedBoard,
         });
-        setIsGameSaved(true);
       }
-      
+
       return newBoard;
     });
   };
-  
+
   const eraseCell = () => {
     if (!selectedCell) return;
-    
+
     const [row, col] = selectedCell;
-    
+
     // Cannot erase filled cells from the initial board
     if (board[row][col].status === cellStatus.FILLED) {
       return;
     }
-    
+
     setBoard(prevBoard => {
       const newBoard = JSON.parse(JSON.stringify(prevBoard)) as Board;
       newBoard[row][col] = {
@@ -211,29 +221,23 @@ export function useSudoku({
       return newBoard;
     });
   };
-  
+
   const toggleNoteMode = () => {
     setIsNoteMode(prev => !prev);
   };
-  
+
   // Debug mode: auto-solve current puzzle
-  const autoSolve = () => {
-    if (solvedBoard && !gameCompleted) {
-      setBoard(solvedBoard);
-      setGameCompleted(true);
-      
-      // Save the completed game immediately
-      if (gameId) {
-        saveGameMutation.mutate({
-          currentBoard: solvedBoard,
-          timeSpent: timeSpent,
-          isCompleted: true,
-        });
-      }
-      
-      if (onGameComplete && gameId) {
+  const autoSolve = async () => {
+    if (!solvedBoard) return;
+
+    setBoard(solvedBoard);
+    setGameCompleted(true);
+
+    // 非ログインユーザーの場合
+    if (!initialBoard || !solvedBoard) {
+      if (onGameComplete) {
         onGameComplete({
-          id: gameId,
+          id: 0, // ダミーID
           difficulty: difficulty,
           initialBoard: initialBoard || createEmptyBoard(),
           currentBoard: solvedBoard,
@@ -244,14 +248,79 @@ export function useSudoku({
           completedAt: new Date(),
         });
       }
+      return;
+    }
+
+    // ゲームがまだサーバーに保存されていない場合は先に作成
+    if (!isGameSaved && !currentGameId) {
+      try {
+        const createdGame = await createGameMutation.mutateAsync({
+          difficulty,
+          initialBoard,
+          currentBoard: solvedBoard,
+          solvedBoard,
+        });
+
+        // ゲーム作成成功後、IDを設定
+        setCurrentGameId(createdGame.id);
+        setIsGameSaved(true);
+
+        // 完了状態で更新
+        await saveGameMutation.mutateAsync({
+          currentBoard: solvedBoard,
+          timeSpent: timeSpent,
+          isCompleted: true,
+        });
+
+        if (onGameComplete) {
+          onGameComplete({
+            id: createdGame.id,
+            difficulty: difficulty,
+            initialBoard: initialBoard,
+            currentBoard: solvedBoard,
+            solvedBoard: solvedBoard,
+            timeSpent: timeSpent,
+            isCompleted: true,
+            startedAt: new Date(),
+            completedAt: new Date(),
+          });
+        }
+      } catch (error) {
+        console.error('Failed to create/save game:', error);
+      }
+    } else if (currentGameId) {
+      // 既存のゲームを完了状態で保存
+      try {
+        await saveGameMutation.mutateAsync({
+          currentBoard: solvedBoard,
+          timeSpent: timeSpent,
+          isCompleted: true,
+        });
+
+        if (onGameComplete) {
+          onGameComplete({
+            id: currentGameId,
+            difficulty: difficulty,
+            initialBoard: initialBoard || createEmptyBoard(),
+            currentBoard: solvedBoard,
+            solvedBoard: solvedBoard,
+            timeSpent: timeSpent,
+            isCompleted: true,
+            startedAt: new Date(),
+            completedAt: new Date(),
+          });
+        }
+      } catch (error) {
+        console.error('Failed to save game:', error);
+      }
     }
   };
-  
+
   // Hint functionality removed
-  
+
   const saveGame = (currentTimeSpent: number) => {
     // Only save if the board has been modified from the initial state
-    if (initialBoard && hasBoardChanged(initialBoard, board)) {
+    if (initialBoard && hasBoardChanged(initialBoard, board) && currentGameId) {
       saveGameMutation.mutate({
         currentBoard: board,
         timeSpent: currentTimeSpent,
@@ -259,11 +328,11 @@ export function useSudoku({
       });
     }
   };
-  
+
   const isCellError = (row: number, col: number) => {
     return hasCellError(row, col, board, gameErrors);
   };
-  
+
   return {
     board,
     selectedCell,

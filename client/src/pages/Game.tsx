@@ -173,6 +173,17 @@ export default function Game() {
   
   // Handle check solution button
   const handleCheckSolution = () => {
+    // First check if we need to create the game on server
+    if (isLoggedIn && !currentGameId && localGame) {
+      // Create game on server first, then check solution
+      createGameMutation.mutate({ difficulty });
+      toast({
+        title: "情報",
+        description: "ゲームを保存してから確認します",
+      });
+      return;
+    }
+
     // Check if the board is complete
     const solvedBoard = gameData?.solvedBoard || localGame?.solvedBoard;
     if (!sudoku.board || !solvedBoard) {
