@@ -90,7 +90,7 @@ export function useSudoku({
         });
       }
     }
-  }, [board, solvedBoard, gameCompleted, currentGameId, onGameComplete]);
+  }, [board, solvedBoard, gameCompleted, currentGameId]);
 
   const createGameMutation = useMutation({
     mutationFn: async (data: {

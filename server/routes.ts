@@ -85,24 +85,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Not authenticated" });
       }
       
-      const { difficulty } = req.body;
+      const { 
+        difficulty, 
+        initialBoard: providedInitialBoard, 
+        currentBoard: providedCurrentBoard, 
+        solvedBoard: providedSolvedBoard,
+        timeSpent: providedTimeSpent,
+        isCompleted: providedIsCompleted,
+        startedAt: providedStartedAt,
+        completedAt: providedCompletedAt
+      } = req.body;
       
       if (!difficulty || !difficulties.includes(Number(difficulty))) {
         return res.status(400).json({ message: "Invalid difficulty level" });
       }
       
-      // Generate a new sudoku puzzle
-      const { initialBoard, solvedBoard } = generateSudoku(difficulty);
+      let initialBoard, currentBoard, solvedBoard, timeSpent, isCompleted, startedAt, completedAt;
+      
+      if (providedInitialBoard && providedCurrentBoard && providedSolvedBoard) {
+        // Use provided board data (for completed games)
+        initialBoard = providedInitialBoard;
+        currentBoard = providedCurrentBoard;
+        solvedBoard = providedSolvedBoard;
+        timeSpent = providedTimeSpent || 0;
+        isCompleted = providedIsCompleted || false;
+        startedAt = providedStartedAt ? new Date(providedStartedAt) : new Date();
+        completedAt = providedCompletedAt ? new Date(providedCompletedAt) : undefined;
+      } else {
+        // Generate a new sudoku puzzle
+        const puzzle = generateSudoku(difficulty);
+        initialBoard = puzzle.initialBoard;
+        currentBoard = puzzle.initialBoard;
+        solvedBoard = puzzle.solvedBoard;
+        timeSpent = 0;
+        isCompleted = false;
+        startedAt = new Date();
+        completedAt = undefined;
+      }
       
       const gameData = {
         userId: req.session.userId,
         difficulty,
         initialBoard: JSON.stringify(initialBoard),
-        currentBoard: JSON.stringify(initialBoard),
+        currentBoard: JSON.stringify(currentBoard),
         solvedBoard: JSON.stringify(solvedBoard),
-        timeSpent: 0,
-        isCompleted: false,
-        startedAt: new Date(),
+        timeSpent,
+        isCompleted,
+        startedAt,
+        ...(completedAt && { completedAt }),
       };
       
       const parsed = insertGameSchema.safeParse(gameData);

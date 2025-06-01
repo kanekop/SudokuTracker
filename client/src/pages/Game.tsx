@@ -47,18 +47,9 @@ export default function Game() {
     },
     onSuccess: (data) => {
       setCurrentGameId(data.id);
+      timer.reset();
+      timer.start();
       setLocalGame(null); // Clear local game when server game is created
-      
-      // If the game is completed (triggered from Ctrl+D), save it immediately
-      if (sudoku.gameCompleted) {
-        // Update the completed game with current board state
-        setTimeout(() => {
-          sudoku.saveGame(timer.seconds);
-        }, 100);
-      } else {
-        timer.reset();
-        timer.start();
-      }
       
       // Explicitly fetch the new game data immediately
       queryClient.setQueryData(['/api/games', data.id], {
@@ -107,8 +98,29 @@ export default function Game() {
           // Game already exists on server, just update it
           sudoku.saveGame(timer.seconds);
         } else if (localGame) {
-          // New game - create on server with completed state
-          createGameMutation.mutate({ difficulty });
+          // New game completed - create and save with completed state
+          const completedGameState = {
+            difficulty,
+            initialBoard: localGame.initialBoard,
+            currentBoard: sudoku.board,
+            solvedBoard: localGame.solvedBoard,
+            timeSpent: timer.seconds,
+            isCompleted: true,
+            startedAt: new Date(),
+            completedAt: new Date(),
+          };
+          
+          // Create game on server with completed state
+          apiRequest('POST', '/api/games', completedGameState)
+            .then(res => res.json())
+            .then(data => {
+              setCurrentGameId(data.id);
+              setLocalGame(null);
+              queryClient.invalidateQueries({ queryKey: ['/api/games'] });
+            })
+            .catch(error => {
+              console.error('Failed to save completed game:', error);
+            });
         }
       }
     },
