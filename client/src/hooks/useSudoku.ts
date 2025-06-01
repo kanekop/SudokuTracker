@@ -38,6 +38,7 @@ export function useSudoku({
   const [selectedCell, setSelectedCell] = useState<[number, number] | null>(null);
   const [isNoteMode, setIsNoteMode] = useState(false);
   const [gameCompleted, setGameCompleted] = useState(false);
+  const [isGameSaved, setIsGameSaved] = useState(!!gameId); // Track if game is already saved to server
   const [gameErrors, setGameErrors] = useState<Set<string>>(new Set());
   
   // Initialize the board when initialBoard changes
@@ -75,6 +76,22 @@ export function useSudoku({
     }
   }, [board, solvedBoard, onGameComplete, gameId, difficulty, initialBoard, timeSpent]);
   
+  const createGameMutation = useMutation({
+    mutationFn: async (data: {
+      difficulty: Difficulty;
+      initialBoard: Board;
+      currentBoard: Board;
+      solvedBoard: Board;
+    }) => {
+      const response = await apiRequest('POST', '/api/games', data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/games'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
+    },
+  });
+
   const saveGameMutation = useMutation({
     mutationFn: async (data: {
       currentBoard: Board;
@@ -111,6 +128,9 @@ export function useSudoku({
       return;
     }
     
+    // Check if this is the first user input and game needs to be saved
+    const shouldCreateGame = !isGameSaved && !gameId && initialBoard && solvedBoard;
+    
     setBoard(prevBoard => {
       const newBoard = JSON.parse(JSON.stringify(prevBoard)) as Board;
       
@@ -139,6 +159,17 @@ export function useSudoku({
           status: value === 0 ? cellStatus.EMPTY : cellStatus.USER_FILLED,
           notes: [],
         };
+      }
+      
+      // If this is the first meaningful input, create the game on server
+      if (shouldCreateGame && hasBoardChanged(initialBoard, newBoard)) {
+        createGameMutation.mutate({
+          difficulty,
+          initialBoard,
+          currentBoard: newBoard,
+          solvedBoard,
+        });
+        setIsGameSaved(true);
       }
       
       return newBoard;

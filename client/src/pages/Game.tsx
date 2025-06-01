@@ -96,7 +96,11 @@ export default function Game() {
   // Start a new game when difficulty changes or when component mounts for logged-in users
   useEffect(() => {
     if (isLoggedIn && !currentGameId) {
-      createGameMutation.mutate(difficulty);
+      // Don't create game on server yet, let the user start playing first
+      const newGame = generateSudoku(difficulty);
+      setLocalGame(newGame);
+      timer.reset();
+      timer.start();
     }
   }, [isLoggedIn, difficulty]);
   
@@ -126,15 +130,11 @@ export default function Game() {
     if (newDifficulty === difficulty) return;
     
     setDifficulty(newDifficulty);
-    if (isLoggedIn) {
-      createGameMutation.mutate(newDifficulty);
-    } else {
-      // For non-logged-in users, generate a new local game
-      const newGame = generateSudoku(newDifficulty);
-      setLocalGame(newGame);
-      timer.reset();
-      timer.start();
-    }
+    setCurrentGameId(null); // Clear current game ID
+    const newGame = generateSudoku(newDifficulty);
+    setLocalGame(newGame);
+    timer.reset();
+    timer.start();
   };
   
   // Handle new game button
