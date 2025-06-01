@@ -158,7 +158,8 @@ export default function Game() {
   // Handle check solution button
   const handleCheckSolution = () => {
     // Check if the board is complete
-    if (!sudoku.board || !gameData?.solvedBoard) {
+    const solvedBoard = gameData?.solvedBoard || localGame?.solvedBoard;
+    if (!sudoku.board || !solvedBoard) {
       toast({
         title: "エラー",
         description: "ゲームデータが不完全です",
