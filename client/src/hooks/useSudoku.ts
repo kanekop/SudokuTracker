@@ -216,6 +216,13 @@ export function useSudoku({
     setIsNoteMode(prev => !prev);
   };
   
+  // Debug mode: auto-solve current puzzle
+  const autoSolve = () => {
+    if (solvedBoard) {
+      setBoard(solvedBoard);
+    }
+  };
+  
   // Hint functionality removed
   
   const saveGame = (currentTimeSpent: number) => {
@@ -242,6 +249,7 @@ export function useSudoku({
     fillCell,
     eraseCell,
     toggleNoteMode,
+    autoSolve,
     saveGame,
     isCellError,
     saveGameMutation,

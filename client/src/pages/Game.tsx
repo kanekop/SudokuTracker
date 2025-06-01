@@ -109,6 +109,24 @@ export default function Game() {
     }
   }, [isLoggedIn, difficulty]);
   
+  // Debug mode: keyboard shortcut to auto-solve
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Ctrl+D to auto-solve (debug mode)
+      if (event.ctrlKey && event.key === 'd') {
+        event.preventDefault();
+        sudoku.autoSolve();
+        toast({
+          title: 'デバッグモード',
+          description: 'パズルを自動解決しました',
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [sudoku.autoSolve]);
+  
   // Set timer when game data is loaded for logged-in users
   useEffect(() => {
     if (gameData) {
