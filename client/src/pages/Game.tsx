@@ -41,8 +41,8 @@ export default function Game() {
   
   // Create a new game
   const createGameMutation = useMutation({
-    mutationFn: async (difficulty: Difficulty) => {
-      const res = await apiRequest('POST', '/api/games', { difficulty });
+    mutationFn: async (params: { difficulty: Difficulty }) => {
+      const res = await apiRequest('POST', '/api/games', { difficulty: params.difficulty });
       return res.json();
     },
     onSuccess: (data) => {

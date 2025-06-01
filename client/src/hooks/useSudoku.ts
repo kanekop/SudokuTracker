@@ -227,92 +227,9 @@ export function useSudoku({
   };
 
   // Debug mode: auto-solve current puzzle
-  const autoSolve = async () => {
-    if (!solvedBoard) return;
-
-    setBoard(solvedBoard);
-    setGameCompleted(true);
-
-    // 非ログインユーザーの場合
-    if (!initialBoard || !solvedBoard) {
-      if (onGameComplete) {
-        onGameComplete({
-          id: 0, // ダミーID
-          difficulty: difficulty,
-          initialBoard: initialBoard || createEmptyBoard(),
-          currentBoard: solvedBoard,
-          solvedBoard: solvedBoard,
-          timeSpent: timeSpent,
-          isCompleted: true,
-          startedAt: new Date(),
-          completedAt: new Date(),
-        });
-      }
-      return;
-    }
-
-    // ゲームがまだサーバーに保存されていない場合は先に作成
-    if (!isGameSaved && !currentGameId) {
-      try {
-        const createdGame = await createGameMutation.mutateAsync({
-          difficulty,
-          initialBoard,
-          currentBoard: solvedBoard,
-          solvedBoard,
-        });
-
-        // ゲーム作成成功後、IDを設定
-        setCurrentGameId(createdGame.id);
-        setIsGameSaved(true);
-
-        // 完了状態で更新
-        await saveGameMutation.mutateAsync({
-          currentBoard: solvedBoard,
-          timeSpent: timeSpent,
-          isCompleted: true,
-        });
-
-        if (onGameComplete) {
-          onGameComplete({
-            id: createdGame.id,
-            difficulty: difficulty,
-            initialBoard: initialBoard,
-            currentBoard: solvedBoard,
-            solvedBoard: solvedBoard,
-            timeSpent: timeSpent,
-            isCompleted: true,
-            startedAt: new Date(),
-            completedAt: new Date(),
-          });
-        }
-      } catch (error) {
-        console.error('Failed to create/save game:', error);
-      }
-    } else if (currentGameId) {
-      // 既存のゲームを完了状態で保存
-      try {
-        await saveGameMutation.mutateAsync({
-          currentBoard: solvedBoard,
-          timeSpent: timeSpent,
-          isCompleted: true,
-        });
-
-        if (onGameComplete) {
-          onGameComplete({
-            id: currentGameId,
-            difficulty: difficulty,
-            initialBoard: initialBoard || createEmptyBoard(),
-            currentBoard: solvedBoard,
-            solvedBoard: solvedBoard,
-            timeSpent: timeSpent,
-            isCompleted: true,
-            startedAt: new Date(),
-            completedAt: new Date(),
-          });
-        }
-      } catch (error) {
-        console.error('Failed to save game:', error);
-      }
+  const autoSolve = () => {
+    if (solvedBoard && !gameCompleted) {
+      setBoard(solvedBoard);
     }
   };
 
