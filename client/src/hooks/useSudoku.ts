@@ -39,13 +39,16 @@ export function useSudoku({
   const [board, setBoard] = useState<Board>(currentBoard || initialBoard || createEmptyBoard());
   const [selectedCell, setSelectedCell] = useState<[number, number] | null>(null);
   const [isNoteMode, setIsNoteMode] = useState(false);
-  
+
   // Check if this is a previously completed game being loaded from history
   const isHistoryGame = !!gameId && currentBoard && solvedBoard && 
     isBoardComplete(currentBoard) && isBoardCorrect(currentBoard, solvedBoard);
-  
+
+  // Check if this is a replay (URL contains replay=true)
+  const isReplayMode = typeof window !== 'undefined' && window.location.search.includes('replay=true');
+
   const [gameCompleted, setGameCompleted] = useState(false);
-  const [hasTriggeredCompletion, setHasTriggeredCompletion] = useState(isHistoryGame);
+  const [hasTriggeredCompletion, setHasTriggeredCompletion] = useState(isHistoryGame && !isReplayMode);
   const [isGameSaved, setIsGameSaved] = useState(!!gameId); // Track if game is already saved to server
   const [gameErrors, setGameErrors] = useState<Set<string>>(new Set());
   const [currentGameId, setCurrentGameId] = useState<number | undefined>(gameId);
@@ -78,11 +81,11 @@ export function useSudoku({
 
   // Update completion flags when history game loads
   useEffect(() => {
-    if (isHistoryGame && !hasTriggeredCompletion) {
+    if (isHistoryGame && !hasTriggeredCompletion && !isReplayMode) {
       setGameCompleted(true);
       setHasTriggeredCompletion(true);
     }
-  }, [isHistoryGame, hasTriggeredCompletion]);
+  }, [isHistoryGame, hasTriggeredCompletion, isReplayMode]);
 
   // Check if the game is completed
   useEffect(() => {
@@ -236,10 +239,10 @@ export function useSudoku({
   // Debug mode: auto-solve current puzzle
   const autoSolve = () => {
     if (!solvedBoard) return;
-    
+
     setBoard(prevBoard => {
       const newBoard = JSON.parse(JSON.stringify(prevBoard)) as Board;
-      
+
       // Only fill empty cells, keep user-filled cells intact
       for (let row = 0; row < 9; row++) {
         for (let col = 0; col < 9; col++) {
@@ -252,7 +255,7 @@ export function useSudoku({
           }
         }
       }
-      
+
       return newBoard;
     });
   };

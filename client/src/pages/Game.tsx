@@ -20,13 +20,13 @@ export default function Game() {
   );
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
   const { toast } = useToast();
-  
+
   // Local state for non-logged-in users
   const [localGame, setLocalGame] = useState<{ initialBoard: any; solvedBoard: any; currentBoard?: any } | null>(null);
-  
+
   // Timer hook
   const timer = useTimer();
-  
+
   // Generate a local game for non-logged-in users
   useEffect(() => {
     if (!isLoggedIn && !localGame) {
@@ -36,9 +36,7 @@ export default function Game() {
       timer.start();
     }
   }, [isLoggedIn, difficulty, localGame]);
-  
-  // This useEffect is removed to avoid conflicts with the one above and the handleDifficultyChange function
-  
+
   // Create a new game
   const createGameMutation = useMutation({
     mutationFn: async (params: { difficulty: Difficulty }) => {
@@ -50,7 +48,7 @@ export default function Game() {
       timer.reset();
       timer.start();
       setLocalGame(null); // Clear local game when server game is created
-      
+
       // Explicitly fetch the new game data immediately
       queryClient.setQueryData(['/api/games', data.id], {
         id: data.id,
@@ -62,7 +60,7 @@ export default function Game() {
         isCompleted: data.isCompleted,
         startedAt: data.startedAt,
       });
-      
+
       queryClient.invalidateQueries({ queryKey: ['/api/games'] });
     },
     onError: (error) => {
@@ -73,27 +71,41 @@ export default function Game() {
       });
     },
   });
-  
+
   // Load game if ID is provided
   const { data: gameData, isLoading: isGameLoading } = useQuery<GameState>({
     queryKey: ['/api/games', currentGameId],
     enabled: !!currentGameId && isLoggedIn,
   });
-  
 
+  // Check if we need to use initialBoard for replay
+  const [isReplay, setIsReplay] = useState(false);
+
+  // Determine which board to use based on game state and replay mode
+  const getCurrentBoard = () => {
+    if (gameData) {
+      // If this is a replay of a completed game, use initialBoard
+      if (isReplay || (gameData.isCompleted && window.location.search.includes('replay=true'))) {
+        return gameData.initialBoard;
+      }
+      // Otherwise use currentBoard for resuming
+      return gameData.currentBoard;
+    }
+    return localGame?.currentBoard;
+  };
 
   // Initialize sudoku hook with game data
   const sudoku = useSudoku({
     gameId: currentGameId,
     initialBoard: gameData?.initialBoard || localGame?.initialBoard,
-    currentBoard: gameData?.currentBoard || localGame?.currentBoard,
+    currentBoard: getCurrentBoard(),
     solvedBoard: gameData?.solvedBoard || localGame?.solvedBoard,
     difficulty: gameData?.difficulty || difficulty,
     timeSpent: timer.seconds,
     onGameComplete: (gameState) => {
       setIsCompletionModalOpen(true);
       timer.pause();
-      
+
       // Handle completion for logged in users
       if (isLoggedIn) {
         if (currentGameId) {
@@ -111,7 +123,7 @@ export default function Game() {
             startedAt: new Date(),
             completedAt: new Date(),
           };
-          
+
           // Create game on server with completed state
           apiRequest('POST', '/api/games', completedGameState)
             .then(res => res.json())
@@ -127,7 +139,7 @@ export default function Game() {
       }
     },
   });
-  
+
   // Start a new game when difficulty changes or when component mounts for logged-in users
   useEffect(() => {
     if (isLoggedIn && !currentGameId) {
@@ -138,7 +150,7 @@ export default function Game() {
       timer.start();
     }
   }, [isLoggedIn, difficulty]);
-  
+
   // Debug mode: keyboard shortcut to auto-solve
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -156,7 +168,7 @@ export default function Game() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [sudoku.autoSolve]);
-  
+
   // Set timer when game data is loaded for logged-in users
   useEffect(() => {
     if (gameData) {
@@ -166,7 +178,7 @@ export default function Game() {
       }
     }
   }, [gameData]);
-  
+
   // Handle game save (auto-save every 30 seconds) for logged-in users
   useEffect(() => {
     const saveInterval = setInterval(() => {
@@ -174,14 +186,14 @@ export default function Game() {
         sudoku.saveGame(timer.seconds);
       }
     }, 30000);
-    
+
     return () => clearInterval(saveInterval);
   }, [isLoggedIn, currentGameId, sudoku.gameCompleted]);
-  
+
   // Handle difficulty change
   const handleDifficultyChange = (newDifficulty: Difficulty) => {
     if (newDifficulty === difficulty) return;
-    
+
     setDifficulty(newDifficulty);
     setCurrentGameId(undefined); // Clear current game ID
     const newGame = generateSudoku(newDifficulty);
@@ -189,7 +201,7 @@ export default function Game() {
     timer.reset();
     timer.start();
   };
-  
+
   // Handle new game button
   const handleNewGame = () => {
     setCurrentGameId(undefined); // Clear current game ID
@@ -198,9 +210,7 @@ export default function Game() {
     timer.reset();
     timer.start();
   };
-  
-  // Hint functionality removed
-  
+
   // Handle check solution button
   const handleCheckSolution = () => {
     // First check if we need to create the game on server
@@ -216,7 +226,7 @@ export default function Game() {
 
     // Get the solved board from current game data or local game
     const currentSolvedBoard = gameData?.solvedBoard || localGame?.solvedBoard;
-    
+
     // For loaded games, the solved board should always be available
     if (!sudoku.board) {
       toast({
@@ -235,12 +245,12 @@ export default function Game() {
       });
       return;
     }
-    
+
     // Check if all cells are filled
     const allCellsFilled = sudoku.board.every(row => 
       row.every(cell => cell.value !== 0)
     );
-    
+
     if (!allCellsFilled) {
       toast({
         title: "未完成",
@@ -249,10 +259,10 @@ export default function Game() {
       });
       return;
     }
-    
+
     // Check if solution is correct using the solved board
     const isCorrect = isBoardCorrect(sudoku.board, currentSolvedBoard);
-    
+
     if (isCorrect) {
       toast({
         title: "正解！",
@@ -262,7 +272,7 @@ export default function Game() {
       // Open the completion modal
       setIsCompletionModalOpen(true);
       timer.pause();
-      
+
       // Save the completed game if logged in
       if (isLoggedIn && currentGameId) {
         sudoku.saveGame(timer.seconds);
@@ -275,7 +285,7 @@ export default function Game() {
       });
     }
   };
-  
+
   // Handle save game
   const handleSaveGame = () => {
     if (isLoggedIn && currentGameId) {
@@ -292,7 +302,7 @@ export default function Game() {
       });
     }
   };
-  
+
   return (
     <>
       {/* Difficulty selector at the top */}
@@ -302,7 +312,7 @@ export default function Game() {
           onDifficultyChange={handleDifficultyChange}
         />
       </div>
-      
+
       {/* Main game area with board on left and controls on right */}
       <div className="flex flex-col md:flex-row justify-start items-start gap-6">
         <div className="mb-6 w-full md:max-w-md">
@@ -313,13 +323,13 @@ export default function Game() {
             onCellSelect={sudoku.selectCell}
             isCellError={sudoku.isCellError}
           />
-          
+
           <NumberPad
             onNumberClick={sudoku.fillCell}
             onErase={sudoku.eraseCell}
           />
         </div>
-        
+
         {/* Game Controls - vertical on mobile, vertical on desktop */}
         <div className="flex flex-col gap-3 md:mt-0">
           <GameControls
@@ -331,7 +341,7 @@ export default function Game() {
           />
         </div>
       </div>
-      
+
       {/* Completion Modal */}
       <CompletionModal
         isOpen={isCompletionModalOpen}

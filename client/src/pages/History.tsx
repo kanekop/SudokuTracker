@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { apiRequest, queryClient } from '@/lib/queryClient';
-import { UserGameHistory, UserStats, Difficulty, difficulties } from '@shared/schema';
+import { useQuery } from '@tanstack/react-query';
+import { UserGameHistory, UserStats, Difficulty } from '@shared/schema';
 import { useAuth } from '@/hooks/useAuth';
 import { formatTime } from '@/lib/sudoku';
 import { useToast } from '@/hooks/use-toast';
@@ -29,7 +28,7 @@ export default function History() {
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>('all');
   const { toast } = useToast();
   const [_, setLocation] = useLocation();
-  
+
   // Fetch game history
   const { 
     data: gameHistory = [], 
@@ -39,7 +38,7 @@ export default function History() {
     queryKey: ['/api/games'],
     enabled: isLoggedIn,
   });
-  
+
   // Fetch user stats
   const { 
     data: stats, 
@@ -49,40 +48,31 @@ export default function History() {
     queryKey: ['/api/stats'],
     enabled: isLoggedIn,
   });
-  
-  // Load a game from history
-  const loadGameMutation = useMutation({
-    mutationFn: async (gameId: number) => {
-      const res = await apiRequest('GET', `/api/games/${gameId}`, undefined);
-      return res.json();
-    },
-    onSuccess: (data) => {
-      queryClient.setQueryData(['/api/games', data.id], data);
-      setLocation(`/game/${data.id}`);
-    },
-    onError: (error) => {
-      toast({
-        title: 'Error',
-        description: 'Failed to load game',
-        variant: 'destructive',
-      });
-    },
-  });
-  
+
+  // Handle replay/continue game
+  const handleReplayGame = (gameId: number, isCompleted: boolean) => {
+    // If it's a completed game, add replay parameter
+    if (isCompleted) {
+      setLocation(`/game/${gameId}?replay=true`);
+    } else {
+      setLocation(`/game/${gameId}`);
+    }
+  };
+
   // Apply filters to game history
   const filteredHistory = gameHistory.filter(game => {
     // Apply completion filter
     if (completionFilter === 'completed' && !game.isCompleted) return false;
     if (completionFilter === 'incomplete' && game.isCompleted) return false;
-    
+
     // Apply difficulty filter
     if (difficultyFilter === '1-3' && (game.difficulty < 1 || game.difficulty > 3)) return false;
     if (difficultyFilter === '4-7' && (game.difficulty < 4 || game.difficulty > 7)) return false;
     if (difficultyFilter === '8-10' && (game.difficulty < 8 || game.difficulty > 10)) return false;
-    
+
     return true;
   });
-  
+
   // Render difficulty indicators
   const renderDifficultyIndicators = (level: Difficulty) => {
     return (
@@ -96,7 +86,7 @@ export default function History() {
       </span>
     );
   };
-  
+
   // Format date as YYYY.MM.DD
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleDateString('ja-JP', {
@@ -105,17 +95,12 @@ export default function History() {
       day: '2-digit',
     }).replace(/\//g, '.');
   };
-  
-  // Handle replay/continue game
-  const handleReplayGame = (gameId: number) => {
-    loadGameMutation.mutate(gameId);
-  };
-  
+
   return (
     <div>
       <div className="mb-6">
         <h2 className="text-xl font-semibold text-gray-800 mb-3">プレイ履歴</h2>
-        
+
         {/* History Filter */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <Button
@@ -139,7 +124,7 @@ export default function History() {
           >
             未完了
           </Button>
-          
+
           <div className="ml-auto">
             <Select
               value={difficultyFilter}
@@ -157,7 +142,7 @@ export default function History() {
             </Select>
           </div>
         </div>
-        
+
         {/* History List */}
         <div className="bg-white rounded-lg border border-gray-medium overflow-hidden">
           {isHistoryLoading ? (
@@ -189,8 +174,7 @@ export default function History() {
                   </div>
                   <Button
                     size="sm"
-                    onClick={() => handleReplayGame(game.id)}
-                    disabled={loadGameMutation.isPending}
+                    onClick={() => handleReplayGame(game.id, game.isCompleted)}
                   >
                     {game.isCompleted ? '再プレイ' : '再開'}
                   </Button>
@@ -200,7 +184,7 @@ export default function History() {
           )}
         </div>
       </div>
-      
+
       {/* Statistics Section */}
       <div>
         <h2 className="text-xl font-semibold text-gray-800 mb-3">統計</h2>
@@ -216,7 +200,7 @@ export default function History() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4">
               <h3 className="text-lg font-medium text-gray-700 mb-2">完了率</h3>
@@ -230,7 +214,7 @@ export default function History() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4">
               <h3 className="text-lg font-medium text-gray-700 mb-2">平均時間</h3>
