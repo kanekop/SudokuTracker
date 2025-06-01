@@ -228,9 +228,26 @@ export function useSudoku({
 
   // Debug mode: auto-solve current puzzle
   const autoSolve = () => {
-    if (solvedBoard && !gameCompleted) {
-      setBoard(solvedBoard);
-    }
+    if (!solvedBoard) return;
+    
+    setBoard(prevBoard => {
+      const newBoard = JSON.parse(JSON.stringify(prevBoard)) as Board;
+      
+      // Only fill empty cells, keep user-filled cells intact
+      for (let row = 0; row < 9; row++) {
+        for (let col = 0; col < 9; col++) {
+          if (newBoard[row][col].value === 0) {
+            newBoard[row][col] = {
+              value: solvedBoard[row][col].value,
+              status: cellStatus.USER_FILLED,
+              notes: [],
+            };
+          }
+        }
+      }
+      
+      return newBoard;
+    });
   };
 
   // Hint functionality removed
