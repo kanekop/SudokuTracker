@@ -75,9 +75,10 @@ export function useSudoku({
     if (solvedBoard && isBoardComplete(board) && isBoardCorrect(board, solvedBoard) && !gameCompleted) {
       setGameCompleted(true);
 
-      if (onGameComplete && currentGameId) {
+      // Always call onGameComplete regardless of currentGameId
+      if (onGameComplete) {
         onGameComplete({
-          id: currentGameId,
+          id: currentGameId || 0, // Use 0 as fallback for new games
           difficulty: difficulty,
           initialBoard: initialBoard || createEmptyBoard(),
           currentBoard: board,
@@ -89,7 +90,7 @@ export function useSudoku({
         });
       }
     }
-  }, [board, solvedBoard, gameCompleted]);
+  }, [board, solvedBoard, gameCompleted, currentGameId, onGameComplete]);
 
   const createGameMutation = useMutation({
     mutationFn: async (data: {
