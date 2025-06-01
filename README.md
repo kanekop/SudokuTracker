@@ -36,7 +36,8 @@
 ## 機能一覧
 
 ### ユーザー認証
-- 名前のみの簡易サインイン
+- 名前のみの簡易サインイン（パスワード不要）
+- 存在しないユーザー名の場合は自動で新規ユーザー作成
 - セッション管理による状態保持
 - Postgres+connect-pg-simpleによるセッションストレージ
 
@@ -46,7 +47,8 @@
 - メモ機能（複数の候補数字をマスに記入）
 - 解答の検証機能
 - ゲームの保存と再開
-- 自動保存機能（30秒ごと）
+- 自動保存機能（30秒ごと、ログインユーザーのみ）
+- エラー検出（重複数字の赤色ハイライト表示）
 
 ### ゲーム履歴
 - プレイ履歴の表示
@@ -56,9 +58,10 @@
 
 ### 高度なUI機能
 - レスポンシブデザイン（モバイル、タブレット、デスクトップ対応）
-- ダークモード対応
 - エラー表示（間違った数字の入力時に赤くハイライト）
 - 完成時の祝福メッセージとスタッツ表示
+- ゲーム板の左側配置とコントロールボタンの右側配置
+- Tailwind CSS + shadcn/ui による一貫したデザインシステム
 
 ## APIエンドポイント
 
@@ -81,8 +84,7 @@
 ```typescript
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: text("username").notNull(),
-  password: text("password").notNull(),
+  username: text("username").notNull().unique(),
 });
 ```
 
@@ -93,12 +95,12 @@ export const games = pgTable("games", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
   difficulty: integer("difficulty").notNull(),
-  initialBoard: text("initial_board").notNull(),
-  currentBoard: text("current_board").notNull(),
-  solvedBoard: text("solved_board").notNull(),
-  timeSpent: integer("time_spent").notNull().default(0),
-  isCompleted: boolean("is_completed").notNull().default(false),
-  startedAt: timestamp("started_at").notNull().defaultNow(),
+  initialBoard: text("initial_board").notNull(), // JSON string of 9x9 board
+  currentBoard: text("current_board").notNull(), // JSON string of 9x9 board
+  solvedBoard: text("solved_board").notNull(), // JSON string of 9x9 board
+  timeSpent: integer("time_spent").default(0), // in seconds
+  isCompleted: boolean("is_completed").default(false),
+  startedAt: timestamp("started_at").notNull(),
   completedAt: timestamp("completed_at"),
 });
 ```
@@ -199,24 +201,52 @@ export const games = pgTable("games", {
      
      // 行の重複チェック
      for (let row = 0; row < 9; row++) {
-       const seen = new Set<number>();
+       const values = new Set<number>();
        for (let col = 0; col < 9; col++) {
          const value = board[row][col].value;
          if (value !== 0) {
-           if (seen.has(value)) {
-             errors.add(`row-${row}-${value}`);
+           if (values.has(value)) {
+             errors.add(`r${row}c${col}`);
            } else {
-             seen.add(value);
+             values.add(value);
            }
          }
        }
      }
      
      // 列の重複チェック
-     // ...
+     for (let col = 0; col < 9; col++) {
+       const values = new Set<number>();
+       for (let row = 0; row < 9; row++) {
+         const value = board[row][col].value;
+         if (value !== 0) {
+           if (values.has(value)) {
+             errors.add(`r${row}c${col}`);
+           } else {
+             values.add(value);
+           }
+         }
+       }
+     }
      
      // 3x3ブロックの重複チェック
-     // ...
+     for (let blockRow = 0; blockRow < 3; blockRow++) {
+       for (let blockCol = 0; blockCol < 3; blockCol++) {
+         const values = new Set<number>();
+         for (let row = blockRow * 3; row < blockRow * 3 + 3; row++) {
+           for (let col = blockCol * 3; col < blockCol * 3 + 3; col++) {
+             const value = board[row][col].value;
+             if (value !== 0) {
+               if (values.has(value)) {
+                 errors.add(`r${row}c${col}`);
+               } else {
+                 values.add(value);
+               }
+             }
+           }
+         }
+       }
+     }
      
      return errors;
    }
@@ -275,7 +305,7 @@ async updateGame(id: number, updates: Partial<Game>): Promise<Game | undefined> 
 ```
 
 #### 自動保存機能
-ゲームは30秒ごとに自動保存されます：
+ゲームは30秒ごとに自動保存されます（ログインユーザーのみ）：
 
 ```typescript
 // client/src/pages/Game.tsx
@@ -289,6 +319,8 @@ useEffect(() => {
   return () => clearInterval(saveInterval);
 }, [isLoggedIn, currentGameId, sudoku.gameCompleted, timer.seconds]);
 ```
+
+注意: 現在のバージョンではタイマー機能は削除されているため、実際の実装では`timer.seconds`の代わりに別の時間管理方法を使用しています。
 
 ## 開発ガイド
 
@@ -350,7 +382,7 @@ useEffect(() => {
 2. デバッグのポイント：
    - バックエンドのログは `console.log` でサーバーコンソールに出力
    - フロントエンドのデバッグには React DevTools と Network タブを活用
-   - セッション関連の問題は `server/auth.ts` や `express-session` の設定を確認
+   - セッション関連の問題は `server/routes.ts` の express-session 設定や `server/storage.ts` のセッションストア実装を確認
 
 3. テスト方法：
    - 現在、自動テストは実装されていません
@@ -458,13 +490,16 @@ export const queryClient = new QueryClient({
 
 ## 今後の改善点
 1. ヒント機能の実装（現バージョンでは削除済み）
-2. 複数の難易度選択の改良
-3. モバイル向けUIの最適化
-4. ゲーム統計情報の拡充
-5. テストの自動化（Jest + React Testing Library）
-6. 国際化対応（i18next による多言語サポート）
-7. オフライン対応（PWA機能の追加）
-8. ダークモード実装
+2. タイマー機能の復活（現バージョンでは削除済み）
+3. 複数の難易度選択の改良
+4. モバイル向けUIの最適化
+5. ゲーム統計情報の拡充
+6. テストの自動化（Jest + React Testing Library）
+7. 国際化対応（i18next による多言語サポート）
+8. オフライン対応（PWA機能の追加）
+9. ダークモード実装
+10. ユーザープロフィール機能
+11. ランキング機能
 
 ## ライセンス
 このプロジェクトは、MITライセンスの下で提供されています。詳細はLICENSEファイルをご覧ください。
