@@ -218,8 +218,32 @@ export function useSudoku({
   
   // Debug mode: auto-solve current puzzle
   const autoSolve = () => {
-    if (solvedBoard) {
+    if (solvedBoard && !gameCompleted) {
       setBoard(solvedBoard);
+      setGameCompleted(true);
+      
+      // Save the completed game immediately
+      if (gameId) {
+        saveGameMutation.mutate({
+          currentBoard: solvedBoard,
+          timeSpent: timeSpent,
+          isCompleted: true,
+        });
+      }
+      
+      if (onGameComplete && gameId) {
+        onGameComplete({
+          id: gameId,
+          difficulty: difficulty,
+          initialBoard: initialBoard || createEmptyBoard(),
+          currentBoard: solvedBoard,
+          solvedBoard: solvedBoard,
+          timeSpent: timeSpent,
+          isCompleted: true,
+          startedAt: new Date(),
+          completedAt: new Date(),
+        });
+      }
     }
   };
   
