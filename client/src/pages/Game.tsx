@@ -9,7 +9,7 @@ import { useSudoku } from '@/hooks/useSudoku';
 import { SudokuBoard, NumberPad, GameControls, DifficultySelector } from '@/components/game';
 import { CompletionModal } from '@/components/modals';
 import { useToast } from '@/hooks/use-toast';
-import { generateSudoku } from '@/lib/sudoku';
+import { generateSudoku, isBoardCorrect } from '@/lib/sudoku';
 
 export default function Game() {
   const { isLoggedIn, user } = useAuth();
@@ -184,12 +184,23 @@ export default function Game() {
       return;
     }
 
-    // Check if the board is complete
-    const solvedBoard = gameData?.solvedBoard || localGame?.solvedBoard;
-    if (!sudoku.board || !solvedBoard) {
+    // Get the solved board from current game data or local game
+    const currentSolvedBoard = gameData?.solvedBoard || localGame?.solvedBoard;
+    
+    // For loaded games, the solved board should always be available
+    if (!sudoku.board) {
       toast({
         title: "エラー",
-        description: "ゲームデータが不完全です",
+        description: "ゲーム盤面が読み込まれていません",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!currentSolvedBoard) {
+      toast({
+        title: "エラー",
+        description: "解答データが見つかりません",
         variant: "destructive",
       });
       return;
@@ -209,8 +220,8 @@ export default function Game() {
       return;
     }
     
-    // Check if solution is correct
-    const isCorrect = sudoku.gameCompleted;
+    // Check if solution is correct using the solved board
+    const isCorrect = isBoardCorrect(sudoku.board, currentSolvedBoard);
     
     if (isCorrect) {
       toast({
