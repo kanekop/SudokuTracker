@@ -47,7 +47,7 @@
 - メモ機能（複数の候補数字をマスに記入）
 - 解答の検証機能
 - ゲームの保存と再開
-- 自動保存機能（30秒ごと、ログインユーザーのみ）
+- タイマー機能（プレイ時間の計測）
 - エラー検出（重複数字の赤色ハイライト表示）
 
 ### ゲーム履歴
@@ -305,22 +305,24 @@ async updateGame(id: number, updates: Partial<Game>): Promise<Game | undefined> 
 ```
 
 #### 自動保存機能
-ゲームは30秒ごとに自動保存されます（ログインユーザーのみ）：
+現在のバージョンでは自動保存機能は実装されていません。ゲームの保存は以下のタイミングで行われます：
+
+1. **手動保存**: 保存ボタン押下時
+2. **ゲーム完了時**: パズル完成時に自動実行
+3. **数字入力時**: ログインユーザーの場合、初回の数字入力でサーバーにゲームが作成・保存される
 
 ```typescript
-// client/src/pages/Game.tsx
-useEffect(() => {
-  const saveInterval = setInterval(() => {
-    if (isLoggedIn && currentGameId && !sudoku.gameCompleted) {
-      sudoku.saveGame(timer.seconds);
-    }
-  }, 30000);
-  
-  return () => clearInterval(saveInterval);
-}, [isLoggedIn, currentGameId, sudoku.gameCompleted, timer.seconds]);
+// client/src/hooks/useSudoku.ts - 保存機能
+const saveGame = (currentTimeSpent: number) => {
+  if (initialBoard && hasBoardChanged(initialBoard, board) && currentGameId) {
+    saveGameMutation.mutate({
+      currentBoard: board,
+      timeSpent: currentTimeSpent,
+      isCompleted: gameCompleted,
+    });
+  }
+};
 ```
-
-注意: 現在のバージョンではタイマー機能は削除されているため、実際の実装では`timer.seconds`の代わりに別の時間管理方法を使用しています。
 
 ## 開発ガイド
 
@@ -488,9 +490,187 @@ export const queryClient = new QueryClient({
    - 不要なレンダリングを避けるため `useMemo` や `useCallback` の使用を検討
    - React Query のキャッシュ戦略を見直す
 
+## デバッグ機能
+
+### Ctrl+Dデバッグモード
+開発・テスト時に便利な自動解答機能を提供しています。
+
+#### Ctrl+Dキーの動作仕様
+1. **基本動作**
+   - ゲーム画面でCtrl+Dキーを押すと、現在の盤面で空いているマス（value: 0）のみを自動的に埋める
+   - 既にユーザーが入力した数字は上書きしない（保持される）
+   - 間違った数字が入力されている場合も、そのままの状態で残りのマスのみ埋める
+
+2. **実装の詳細**
+   ```typescript
+   // client/src/hooks/useSudoku.ts
+   const autoSolve = () => {
+     if (!solvedBoard) return;
+     
+     setBoard(prevBoard => {
+       const newBoard = JSON.parse(JSON.stringify(prevBoard)) as Board;
+       
+       // 空いているマスのみを埋める（既存の入力は保持）
+       for (let row = 0; row < 9; row++) {
+         for (let col = 0; col < 9; col++) {
+           if (newBoard[row][col].value === 0) {
+             newBoard[row][col] = {
+               value: solvedBoard[row][col].value,
+               status: cellStatus.USER_FILLED,
+               notes: [],
+             };
+           }
+         }
+       }
+       
+       return newBoard;
+     });
+   };
+   ```
+
+3. **ゲーム完了の流れ**
+   - Ctrl+Dでマスを埋めた後、通常のゲーム完了判定が動作する
+   - `useEffect`内で盤面の完成度をチェックし、完成していれば`onGameComplete`コールバックが実行される
+   - 自然な完了処理により、履歴への保存や完了モーダルの表示が行われる
+
+4. **履歴との連携**
+   - 履歴から再開したゲームでもCtrl+Dが正常に動作する
+   - デバッグ機能使用後も、通常のゲーム完了として履歴に記録される
+
+## プレイ履歴管理
+
+### 完了・未完了フラグの仕組み
+
+#### ゲーム状態の分類
+- **未完了（isCompleted: false）**: まだ解き終わっていないゲーム
+- **完了（isCompleted: true）**: 正しく解き終わったゲーム
+
+#### 未完了から完了への変更条件
+以下の条件がすべて満たされた時に、`isCompleted`フラグが`false`から`true`に変更されます：
+
+1. **盤面が完全に埋まっている**
+   ```typescript
+   export function isBoardComplete(board: Board): boolean {
+     return board.every(row => 
+       row.every(cell => cell.value !== 0)
+     );
+   }
+   ```
+
+2. **解答が正しい**
+   ```typescript
+   export function isBoardCorrect(currentBoard: Board, solvedBoard: Board): boolean {
+     for (let row = 0; row < 9; row++) {
+       for (let col = 0; col < 9; col++) {
+         if (currentBoard[row][col].value !== 0 && 
+             currentBoard[row][col].value !== solvedBoard[row][col].value) {
+           return false;
+         }
+       }
+     }
+     return true;
+   }
+   ```
+
+3. **ゲーム完了判定の実行**
+   ```typescript
+   // client/src/hooks/useSudoku.ts
+   useEffect(() => {
+     if (solvedBoard && isBoardComplete(board) && isBoardCorrect(board, solvedBoard) && !gameCompleted) {
+       setGameCompleted(true);
+       
+       // ゲーム完了コールバックの実行
+       if (onGameComplete && currentGameId) {
+         onGameComplete({
+           // ... ゲーム状態
+         });
+       }
+     }
+   }, [board, solvedBoard, gameCompleted]);
+   ```
+
+4. **サーバーへの保存処理**
+   ```typescript
+   // client/src/pages/Game.tsx
+   onGameComplete: (gameState) => {
+     setIsCompletionModalOpen(true);
+     timer.pause();
+     // 完了状態でサーバーに保存
+     if (isLoggedIn) {
+       sudoku.saveGame(timer.seconds);
+     }
+   },
+   ```
+
+#### 履歴からの再開機能
+
+##### 再開ボタンの動作仕様
+履歴画面で「再開」ボタンを押した時の動作：
+
+1. **ゲームデータの読み込み**
+   ```typescript
+   // client/src/pages/Game.tsx
+   const { data: gameData } = useQuery<GameState>({
+     queryKey: ['/api/games', currentGameId],
+     enabled: !!currentGameId && isLoggedIn,
+   });
+   ```
+
+2. **盤面状態の復元**
+   - `initialBoard`: パズルの初期状態（変更されない）
+   - `currentBoard`: ユーザーの進行状況（保存時点の状態）
+   - `solvedBoard`: 正解の盤面（変更されない）
+
+3. **ゲーム状態の初期化**
+   ```typescript
+   // client/src/hooks/useSudoku.ts
+   useEffect(() => {
+     if (currentBoard) {
+       setBoard(currentBoard);
+       setSelectedCell(null);
+       setGameCompleted(false); // 完了フラグをリセット
+     }
+   }, [currentBoard, initialBoard]);
+   ```
+
+4. **継続プレイ**
+   - 保存された進行状況から続きをプレイ可能
+   - 新しい数字の入力や修正が可能
+   - 再度完了条件を満たせば、`isCompleted`フラグが更新される
+
+##### 重要な仕様
+- **完了済みゲームの再開**: 完了済み（isCompleted: true）のゲームも再開可能
+- **フラグの再更新**: 再開後に再度完了条件を満たせば、完了状態として保存される
+- **履歴の更新**: 再開したゲームで新しい進捗があれば、履歴一覧に反映される
+
+### データの整合性保証
+
+#### 保存タイミング
+1. **手動保存**: 保存ボタン押下時
+2. **完了時保存**: ゲーム完了時に自動実行
+3. **初回入力時**: ログインユーザーが最初に数字を入力した時にサーバーにゲーム作成
+4. **ページ離脱時**: ブラウザのbeforeunloadイベント（実装されていない場合は要検討）
+
+#### データの一貫性
+```typescript
+// server/storage.ts
+async updateGame(id: number, updates: Partial<Game>): Promise<Game | undefined> {
+  const [updatedGame] = await db
+    .update(games)
+    .set({
+      ...updates,
+      // 完了時は完了日時も更新
+      ...(updates.isCompleted === true && { completedAt: new Date() })
+    })
+    .where(eq(games.id, id))
+    .returning();
+  return updatedGame;
+}
+```
+
 ## 今後の改善点
 1. ヒント機能の実装（現バージョンでは削除済み）
-2. タイマー機能の復活（現バージョンでは削除済み）
+2. 自動保存機能の実装（30秒間隔での保存）
 3. 複数の難易度選択の改良
 4. モバイル向けUIの最適化
 5. ゲーム統計情報の拡充
