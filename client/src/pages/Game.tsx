@@ -128,7 +128,7 @@ export default function Game() {
     }, 30000);
     
     return () => clearInterval(saveInterval);
-  }, [isLoggedIn, currentGameId, sudoku.gameCompleted, timer.seconds]);
+  }, [isLoggedIn, currentGameId, sudoku.gameCompleted]);
   
   // Handle difficulty change
   const handleDifficultyChange = (newDifficulty: Difficulty) => {
