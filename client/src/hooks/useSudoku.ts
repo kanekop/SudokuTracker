@@ -63,7 +63,7 @@ export function useSudoku({
   
   // Check if the game is completed
   useEffect(() => {
-    if (solvedBoard && isBoardComplete(board) && isBoardCorrect(board, solvedBoard)) {
+    if (solvedBoard && isBoardComplete(board) && isBoardCorrect(board, solvedBoard) && !gameCompleted) {
       setGameCompleted(true);
       
       if (onGameComplete && gameId) {
@@ -80,7 +80,7 @@ export function useSudoku({
         });
       }
     }
-  }, [board, solvedBoard, onGameComplete, gameId, difficulty, initialBoard, timeSpent]);
+  }, [board, solvedBoard, gameCompleted]);
   
   const createGameMutation = useMutation({
     mutationFn: async (data: {
