@@ -285,3 +285,24 @@ export function formatTime(seconds: number): string {
   const secs = seconds % 60;
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
+
+// Check if the board has any user input (different from initial board)
+export function hasBoardChanged(initialBoard: Board, currentBoard: Board): boolean {
+  for (let row = 0; row < 9; row++) {
+    for (let col = 0; col < 9; col++) {
+      const initialCell = initialBoard[row][col];
+      const currentCell = currentBoard[row][col];
+      
+      // If initial cell was empty and now has a value, or if it was filled and now different
+      if (initialCell.status === cellStatus.EMPTY && currentCell.value !== 0) {
+        return true;
+      }
+      
+      // If there are notes added
+      if (currentCell.notes && currentCell.notes.length > 0) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
