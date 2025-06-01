@@ -13,7 +13,8 @@ import {
   isBoardComplete,
   isBoardCorrect,
   getBoardErrors,
-  hasCellError
+  hasCellError,
+  hasBoardChanged
 } from '@/lib/sudoku';
 
 type SudokuHookProps = {
@@ -172,11 +173,14 @@ export function useSudoku({
   // Hint functionality removed
   
   const saveGame = (currentTimeSpent: number) => {
-    saveGameMutation.mutate({
-      currentBoard: board,
-      timeSpent: currentTimeSpent,
-      isCompleted: gameCompleted,
-    });
+    // Only save if the board has been modified from the initial state
+    if (initialBoard && hasBoardChanged(initialBoard, board)) {
+      saveGameMutation.mutate({
+        currentBoard: board,
+        timeSpent: currentTimeSpent,
+        isCompleted: gameCompleted,
+      });
+    }
   };
   
   const isCellError = (row: number, col: number) => {
