@@ -13,13 +13,16 @@ import { generateSudoku } from '@/lib/sudoku';
 
 export default function Game() {
   const { isLoggedIn, user } = useAuth();
+  const [match, params] = useRoute('/game/:gameId');
   const [difficulty, setDifficulty] = useState<Difficulty>(3);
-  const [currentGameId, setCurrentGameId] = useState<number | undefined>(undefined);
+  const [currentGameId, setCurrentGameId] = useState<number | undefined>(
+    params?.gameId ? parseInt(params.gameId) : undefined
+  );
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
   const { toast } = useToast();
   
   // Local state for non-logged-in users
-  const [localGame, setLocalGame] = useState<{ initialBoard: any; solvedBoard: any } | null>(null);
+  const [localGame, setLocalGame] = useState<{ initialBoard: any; solvedBoard: any; currentBoard?: any } | null>(null);
   
   // Timer hook
   const timer = useTimer();

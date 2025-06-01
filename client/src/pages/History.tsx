@@ -58,7 +58,7 @@ export default function History() {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(['/api/games', data.id], data);
-      setLocation('/');
+      setLocation(`/game/${data.id}`);
     },
     onError: (error) => {
       toast({
