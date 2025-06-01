@@ -44,7 +44,8 @@ export function useSudoku({
   const isHistoryGame = !!gameId && currentBoard && solvedBoard && 
     isBoardComplete(currentBoard) && isBoardCorrect(currentBoard, solvedBoard);
   
-  const [gameCompleted, setGameCompleted] = useState(isHistoryGame);
+  const [gameCompleted, setGameCompleted] = useState(false);
+  const [hasTriggeredCompletion, setHasTriggeredCompletion] = useState(isHistoryGame);
   const [isGameSaved, setIsGameSaved] = useState(!!gameId); // Track if game is already saved to server
   const [gameErrors, setGameErrors] = useState<Set<string>>(new Set());
   const [currentGameId, setCurrentGameId] = useState<number | undefined>(gameId);
@@ -75,13 +76,22 @@ export function useSudoku({
     setGameErrors(getBoardErrors(board));
   }, [board]);
 
+  // Update completion flags when history game loads
+  useEffect(() => {
+    if (isHistoryGame && !hasTriggeredCompletion) {
+      setGameCompleted(true);
+      setHasTriggeredCompletion(true);
+    }
+  }, [isHistoryGame, hasTriggeredCompletion]);
+
   // Check if the game is completed
   useEffect(() => {
     if (solvedBoard && isBoardComplete(board) && isBoardCorrect(board, solvedBoard) && !gameCompleted) {
       setGameCompleted(true);
 
       // Only trigger completion callback for newly completed games, not for loaded completed games
-      if (onGameComplete && !isHistoryGame) {
+      if (onGameComplete && !hasTriggeredCompletion) {
+        setHasTriggeredCompletion(true);
         onGameComplete({
           id: currentGameId || 0, // Use 0 as fallback for new games
           difficulty: difficulty,
@@ -95,7 +105,7 @@ export function useSudoku({
         });
       }
     }
-  }, [board, solvedBoard, gameCompleted, currentGameId, isHistoryGame]);
+  }, [board, solvedBoard, gameCompleted, currentGameId, hasTriggeredCompletion]);
 
   const createGameMutation = useMutation({
     mutationFn: async (data: {

@@ -80,19 +80,7 @@ export default function Game() {
     enabled: !!currentGameId && isLoggedIn,
   });
   
-  // Debug: Log board data for troubleshooting
-  useEffect(() => {
-    if (gameData && currentGameId) {
-      console.log('Game data loaded:', {
-        gameId: currentGameId,
-        hasInitialBoard: !!gameData.initialBoard,
-        hasCurrentBoard: !!gameData.currentBoard,
-        hasSolvedBoard: !!gameData.solvedBoard,
-        currentBoardFirstCell: gameData.currentBoard?.[0]?.[0],
-        solvedBoardFirstCell: gameData.solvedBoard?.[0]?.[0],
-      });
-    }
-  }, [gameData, currentGameId]);
+
 
   // Initialize sudoku hook with game data
   const sudoku = useSudoku({
