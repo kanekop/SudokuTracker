@@ -5,11 +5,8 @@ import { Difficulty, GameState } from '@shared/schema';
 import { useAuth } from '@/hooks/useAuth';
 import { useTimer } from '@/hooks/useTimer';
 import { useSudoku } from '@/hooks/useSudoku';
-import { SudokuBoard } from '@/components/SudokuBoard';
-import { NumberPad } from '@/components/NumberPad';
-import { GameControls } from '@/components/GameControls';
-import { DifficultySelector } from '@/components/DifficultySelector';
-import { CompletionModal } from '@/components/CompletionModal';
+import { SudokuBoard, NumberPad, GameControls, DifficultySelector } from '@/components/game';
+import { CompletionModal } from '@/components/modals';
 import { useToast } from '@/hooks/use-toast';
 import { generateSudoku } from '@/lib/sudoku';
 
