@@ -66,6 +66,15 @@ export function useSudoku({
     if (solvedBoard && isBoardComplete(board) && isBoardCorrect(board, solvedBoard) && !gameCompleted) {
       setGameCompleted(true);
       
+      // Save the completed game immediately
+      if (gameId) {
+        saveGameMutation.mutate({
+          currentBoard: board,
+          timeSpent: timeSpent,
+          isCompleted: true,
+        });
+      }
+      
       if (onGameComplete && gameId) {
         onGameComplete({
           id: gameId,
