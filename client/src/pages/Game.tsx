@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useRoute } from 'wouter';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Difficulty, GameState } from '@shared/schema';
 import { useAuth } from '@/hooks/useAuth';
@@ -80,6 +81,7 @@ export default function Game() {
   const sudoku = useSudoku({
     gameId: currentGameId,
     initialBoard: gameData?.initialBoard || localGame?.initialBoard,
+    currentBoard: gameData?.currentBoard || localGame?.currentBoard,
     solvedBoard: gameData?.solvedBoard || localGame?.solvedBoard,
     difficulty: gameData?.difficulty || difficulty,
     timeSpent: timer.seconds,

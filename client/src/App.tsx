@@ -57,6 +57,7 @@ function App() {
       <main>
         <Switch>
           <Route path="/" component={Game} />
+          <Route path="/game/:gameId" component={Game} />
           <Route path="/history" component={History} />
           <Route component={NotFound} />
         </Switch>

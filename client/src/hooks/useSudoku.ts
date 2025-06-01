@@ -20,6 +20,7 @@ import {
 type SudokuHookProps = {
   gameId?: number;
   initialBoard?: Board;
+  currentBoard?: Board;
   solvedBoard?: Board;
   difficulty?: Difficulty;
   timeSpent?: number;
@@ -29,26 +30,31 @@ type SudokuHookProps = {
 export function useSudoku({
   gameId,
   initialBoard,
+  currentBoard,
   solvedBoard,
   difficulty = 1,
   timeSpent = 0,
   onGameComplete,
 }: SudokuHookProps) {
-  const [board, setBoard] = useState<Board>(initialBoard || createEmptyBoard());
+  const [board, setBoard] = useState<Board>(currentBoard || initialBoard || createEmptyBoard());
   const [selectedCell, setSelectedCell] = useState<[number, number] | null>(null);
   const [isNoteMode, setIsNoteMode] = useState(false);
   const [gameCompleted, setGameCompleted] = useState(false);
   const [isGameSaved, setIsGameSaved] = useState(!!gameId); // Track if game is already saved to server
   const [gameErrors, setGameErrors] = useState<Set<string>>(new Set());
   
-  // Initialize the board when initialBoard changes
+  // Initialize the board when currentBoard or initialBoard changes
   useEffect(() => {
-    if (initialBoard) {
+    if (currentBoard) {
+      setBoard(currentBoard);
+      setSelectedCell(null);
+      setGameCompleted(false);
+    } else if (initialBoard) {
       setBoard(initialBoard);
       setSelectedCell(null);
       setGameCompleted(false);
     }
-  }, [initialBoard]);
+  }, [currentBoard, initialBoard]);
   
   // Check for errors in the board
   useEffect(() => {
