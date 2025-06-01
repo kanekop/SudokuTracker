@@ -75,15 +75,6 @@ export function useSudoku({
     if (solvedBoard && isBoardComplete(board) && isBoardCorrect(board, solvedBoard) && !gameCompleted) {
       setGameCompleted(true);
 
-      // Save the completed game immediately
-      if (currentGameId) {
-        saveGameMutation.mutate({
-          currentBoard: board,
-          timeSpent: timeSpent,
-          isCompleted: true,
-        });
-      }
-
       if (onGameComplete && currentGameId) {
         onGameComplete({
           id: currentGameId,
@@ -98,7 +89,7 @@ export function useSudoku({
         });
       }
     }
-  }, [board, solvedBoard, gameCompleted, currentGameId]);
+  }, [board, solvedBoard, gameCompleted]);
 
   const createGameMutation = useMutation({
     mutationFn: async (data: {
